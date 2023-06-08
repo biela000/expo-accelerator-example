@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Accelerometer } from 'expo-sensors';
 
@@ -9,9 +9,10 @@ export default function App() {
     z: 0,
   });
   const [subscription, setSubscription] = useState(null);
+  const ws = useRef(new WebSocket('ws://192.168.1.170:4444')).current;
 
   const _slow = () => Accelerometer.setUpdateInterval(1000);
-  const _fast = () => Accelerometer.setUpdateInterval(16);
+  const _fast = () => Accelerometer.setUpdateInterval(500);
 
   const _subscribe = () => {
     setSubscription(
@@ -28,6 +29,44 @@ export default function App() {
     _subscribe();
     return () => _unsubscribe();
   }, []);
+
+  useEffect(() => {
+      // Send a message through the socket
+      if (ws.readyState === ws.OPEN) {
+          ws.send(JSON.stringify({
+              type: 'PLAYER_MOVE',
+              payload: {
+                  lobbyId: 'test',
+                  x,
+                  y,
+                  z,
+              }
+          }));
+      }
+  }, [x, y, z]);
+
+    useEffect(() => {
+        ws.onopen = () => {
+            ws.send(JSON.stringify({
+                type: 'JOIN_LOBBY',
+                payload: {
+                    lobbyId: 'test',
+                    playerName: 'piotrek',
+                }
+            }));
+        }
+        ws.onmessage = (message) => {
+            const parsedMessage = JSON.parse(message.data);
+
+            switch (parsedMessage.type) {
+                case 'ID_ASSIGNED':
+                    console.log(parsedMessage.payload.playerId);
+                    break;
+                default:
+                    break;
+            }
+        }
+    }, []);
 
   return (
       <View style={styles.container}>
